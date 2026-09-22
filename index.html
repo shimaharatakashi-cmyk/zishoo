@@ -1067,39 +1067,55 @@ function analyzeData() {
     document.getElementById('resultArea').style.display = 'block';
 }
 </script>
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // ① 検索窓を完全に非表示にする
-    const searchBox = document.getElementById('search-box');
-    if (searchBox) searchBox.style.display = 'none';
-    const searchBtn = document.querySelector('a[href="#search-box"]');
-    if (searchBtn) searchBtn.style.display = 'none';
+// 他のプログラムが全て終わった後に、強制的に発動させる
+setTimeout(function() {
+    try {
+        // ① 検索窓を「強制的に」非表示にする
+        var searchBox = document.getElementById('search-box');
+        if (searchBox) searchBox.style.display = 'none';
+        var searchBtn = document.querySelector('a[href="#search-box"]');
+        if (searchBtn) searchBtn.style.display = 'none';
 
-    // ② 各順位の最後に「トップに戻る」ボタンを追加する
-    document.querySelectorAll('.box[id^="rank-"]').forEach(box => {
-        if (!box.querySelector('.back-to-top')) {
-            box.insertAdjacentHTML('beforeend', '<div style="text-align: right;"><a href="#sub-nav" class="back-to-top" style="display: inline-block; background: #6c757d; color: #fff; padding: 8px 15px; border-radius: 4px; text-decoration: none; font-weight: bold; margin-top: 15px;">⬆ トップ（順位選択）に戻る</a></div>');
-        }
-    });
-
-    // ③ 指数を自動で「小数点あり（例：1150 → 115.0）」に変換する
-    document.querySelectorAll('#dictMode table').forEach(table => {
-        table.querySelectorAll('tr').forEach((row, index) => {
-            if (index === 0) return; // 見出し行は無視
-            const firstTd = row.querySelector('td:first-child');
-            if (firstTd) {
-                let text = firstTd.textContent.trim();
-                if (text !== '' && !text.includes('.')) {
-                    let val = parseInt(text, 10);
-                    if (!isNaN(val)) {
-                        firstTd.textContent = (val / 10).toFixed(1);
+        // ② 指数を強制的に「小数点あり」＆「末尾1なら5」に書き換える
+        var tables = document.querySelectorAll('#dictMode table');
+        for (var i = 0; i < tables.length; i++) {
+            var rows = tables[i].querySelectorAll('tr');
+            for (var j = 1; j < rows.length; j++) { // j=1で1行目(見出し)をスキップ
+                var firstTd = rows[j].querySelector('td');
+                if (firstTd) {
+                    var text = firstTd.innerText.trim();
+                    // まだ小数点がついていない数字なら処理する
+                    if (text !== '' && text.indexOf('.') === -1) {
+                        var val = parseInt(text, 10);
+                        if (!isNaN(val)) {
+                            // 末尾が1なら5にする (例: 981 → 985)
+                            if (val % 10 === 1) { 
+                                val = val + 4; 
+                            }
+                            // 10で割って小数点第1位まで表示 (例: 985 → 98.5)
+                            firstTd.innerText = (val / 10).toFixed(1);
+                        }
                     }
                 }
             }
-        });
-    });
-});
+        }
+
+        // ③ 各順位の最後に「トップに戻る」ボタンを追加する
+        var boxes = document.querySelectorAll('.box[id^="rank-"]');
+        for (var k = 0; k < boxes.length; k++) {
+            if (!boxes[k].querySelector('.back-to-top')) {
+                var btnDiv = document.createElement('div');
+                btnDiv.style.textAlign = 'right';
+                btnDiv.innerHTML = '<a href="#sub-nav" class="back-to-top" style="display:inline-block;background:#6c757d;color:#fff;padding:8px 15px;border-radius:4px;text-decoration:none;font-weight:bold;margin-top:15px;">⬆ トップ（順位選択）に戻る</a>';
+                boxes[k].appendChild(btnDiv);
+            }
+        }
+        
+    } catch(e) {
+        console.error("変換中にエラーが起きました: ", e);
+    }
+}, 500); // 0.5秒遅らせて確実に実行
 </script>
 <style>html { scroll-behavior: smooth; }</style>
 
