@@ -1068,40 +1068,47 @@ function analyzeData() {
 }
 </script>
 <script>
-// 他のプログラムが全て終わった後に、強制的に発動させる
+// ==========================================
+// 最終パッチ：小数点の完全排除（切り上げ）＆ 注意書きの自動追加
+// ==========================================
 setTimeout(function() {
     try {
-        // ① 検索窓を「強制的に」非表示にする
+        // ① 邪魔をしている検索窓を完全に消し去る
         var searchBox = document.getElementById('search-box');
         if (searchBox) searchBox.style.display = 'none';
         var searchBtn = document.querySelector('a[href="#search-box"]');
         if (searchBtn) searchBtn.style.display = 'none';
 
-        // ② 指数を強制的に「小数点あり」＆「末尾1なら5」に書き換える
+        // ★NEW★ ② 辞書モードとレース解析モードの上部に「切り上げ」の注意書きを自動追加する
+        var dictIntro = document.querySelector('#dictMode p');
+        if (dictIntro && dictIntro.innerHTML.indexOf('切り上げ') === -1) {
+            dictIntro.innerHTML += '<br><span style="color:#d9534f; font-weight:bold;">※指数に端数（.1や.5など）がある場合は、見やすさと集計の都合上、すべて「切り上げ（例：98.1 → 99）」て表示しています。</span>';
+        }
+        var raceIntro = document.querySelector('#raceMode .box p');
+        if (raceIntro && raceIntro.innerHTML.indexOf('切り上げ') === -1) {
+            raceIntro.innerHTML += '<br><span style="color:#d9534f; font-weight:bold;">※出馬表の指数に端数（.5など）が含まれている場合、自動的に「切り上げ（例：98.5 → 99）」として解析・合算されます。</span>';
+        }
+
+        // ③ 辞書の表示を「小数点なしの切り上げ整数」にして超スッキリさせる（例：1150→115, 981→99）
         var tables = document.querySelectorAll('#dictMode table');
         for (var i = 0; i < tables.length; i++) {
             var rows = tables[i].querySelectorAll('tr');
-            for (var j = 1; j < rows.length; j++) { // j=1で1行目(見出し)をスキップ
+            for (var j = 1; j < rows.length; j++) { 
                 var firstTd = rows[j].querySelector('td');
                 if (firstTd) {
                     var text = firstTd.innerText.trim();
-                    // まだ小数点がついていない数字なら処理する
                     if (text !== '' && text.indexOf('.') === -1) {
                         var val = parseInt(text, 10);
                         if (!isNaN(val)) {
-                            // 末尾が1なら5にする (例: 981 → 985)
-                            if (val % 10 === 1) { 
-                                val = val + 4; 
-                            }
-                            // 10で割って小数点第1位まで表示 (例: 985 → 98.5)
-                            firstTd.innerText = (val / 10).toFixed(1);
+                            // 10で割って実際の数値にし、Math.ceilで「切り上げ」る
+                            firstTd.innerText = Math.ceil(val / 10);
                         }
                     }
                 }
             }
         }
 
-        // ③ 各順位の最後に「トップに戻る」ボタンを追加する
+        // ④ 各順位の最後に「トップに戻る」ボタンを追加する
         var boxes = document.querySelectorAll('.box[id^="rank-"]');
         for (var k = 0; k < boxes.length; k++) {
             if (!boxes[k].querySelector('.back-to-top')) {
@@ -1111,11 +1118,117 @@ setTimeout(function() {
                 boxes[k].appendChild(btnDiv);
             }
         }
-        
     } catch(e) {
-        console.error("変換中にエラーが起きました: ", e);
+        console.error("画面クリーンアップ中にエラー: ", e);
     }
-}, 500); // 0.5秒遅らせて確実に実行
+}, 300); // 画面読み込み直後に確実に実行
+
+// ==========================================
+// ⑤ 出馬表の貼り付け時、0.5などを自動で「切り上げ」るよう計算ロジックを上書き
+// ==========================================
+window.analyzeData = function() {
+    const text = document.getElementById('inputText').value;
+    if (!text) { alert("テキストを貼り付けてください。"); return; }
+    
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let jockeyData = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        if (i + 1 < lines.length && /^\d{2,3}(\.\d)?$/.test(lines[i+1])) {
+            if(lines[i] !== "-" && lines[i].length <= 5) {
+                // ★ココで98.5などを Math.ceil で強制的に「99」に切り上げる！
+                let roundedVal = Math.ceil(parseFloat(lines[i+1]));
+                jockeyData.push({jockey: lines[i], indexVal: roundedVal}); 
+                i++;
+            }
+        }
+    }
+    
+    let horseData = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\d{1,2}$/.test(lines[i])) {
+            if (i + 1 < lines.length && /[ァ-ヴー]/.test(lines[i+1])) {
+                horseData.push({umaban: parseInt(lines[i]), horseName: lines[i+1]}); i++;
+            }
+        }
+    }
+    
+    let combinedList = [];
+    const loopCount = Math.min(jockeyData.length, horseData.length);
+    if(loopCount === 0) { alert("データが正しく読み取れませんでした。テキストを確認してください。"); return; }
+    
+    for (let i = 0; i < loopCount; i++) {
+        combinedList.push({umaban: horseData[i].umaban, horseName: horseData[i].horseName, jockey: jockeyData[i].jockey, indexVal: jockeyData[i].indexVal});
+    }
+    
+    let sortedForRank = [...combinedList].sort((a,b) => b.indexVal - a.indexVal);
+    sortedForRank.forEach((item,idx) => { item.rank = idx + 1; });
+    combinedList.sort((a,b) => a.umaban - b.umaban);
+    
+    let html = `<table><tr><th>馬番</th><th>馬名 (騎手)</th><th>指数<br>(順位)</th><th>合算戦績<br>(対象の前後3つ)</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収</th><th>複勝回収</th></tr>`;
+    currentRaceResultText = "🏇 レース解析結果\n-------------------------\n";
+
+    combinedList.forEach(horse => {
+        // 切り上げ済みの整数（例:99）をDB検索用に（990）にする
+        let targetKey = horse.indexVal * 10;
+        let rankStr = horse.rank > 10 ? 10 : horse.rank;
+        
+        let keysToSearch = [targetKey - 10, targetKey, targetKey + 10];
+        let sum1=0, sum2=0, sum3=0, sumOut=0, sumTotal=0;
+        let sumWinRetAmount=0, sumFukuRetAmount=0;
+        
+        keysToSearch.forEach(k => {
+            let kStr = k.toString();
+            // DB内に 981 などの端数データが残っている場合も、切り上げとして一緒に拾い上げる処理
+            if (db[rankStr]) {
+                if (db[rankStr][kStr]) {
+                    let d = db[rankStr][kStr];
+                    let t = d[0] + d[1] + d[2] + d[3];
+                    sum1+=d[0]; sum2+=d[1]; sum3+=d[2]; sumOut+=d[3]; sumTotal+=t;
+                    sumWinRetAmount += (d[4] * t); sumFukuRetAmount += (d[5] * t);
+                }
+                // k=990 のとき、981 などの .1 データも 99 扱いとして合算する
+                let fractionKey = (k - 9).toString();
+                if (db[rankStr][fractionKey]) {
+                    let d = db[rankStr][fractionKey];
+                    let t = d[0] + d[1] + d[2] + d[3];
+                    sum1+=d[0]; sum2+=d[1]; sum3+=d[2]; sumOut+=d[3]; sumTotal+=t;
+                    sumWinRetAmount += (d[4] * t); sumFukuRetAmount += (d[5] * t);
+                }
+            }
+        });
+        
+        let displayStr = ""; 
+        let isHighlight = false;
+        
+        if (sumTotal === 0) {
+            displayStr = `<td colspan="6" style="color:#999;">過去データなし (${horse.indexVal}付近)</td>`;
+            currentRaceResultText += `【${horse.rank}位】[${horse.umaban}] ${horse.horseName} (${horse.jockey})\n指数: ${horse.indexVal} (過去データなし)\n-------------------------\n`;
+        } else {
+            let wRate = ((sum1 / sumTotal) * 100).toFixed(1);
+            let rRate = (((sum1 + sum2) / sumTotal) * 100).toFixed(1);
+            let fRate = (((sum1 + sum2 + sum3) / sumTotal) * 100).toFixed(1);
+            let winRet = Math.round(sumWinRetAmount / sumTotal);
+            let fukuRet = Math.round(sumFukuRetAmount / sumTotal);
+            
+            if(winRet > 100) { isHighlight = true; }
+            
+            displayStr = `<td>${sumTotal}戦 ${sum1}-${sum2}-${sum3}-${sumOut}</td><td>${wRate}%</td><td>${rRate}%</td><td>${fRate}%</td><td style="color:${winRet>100?'red':'#333'}; font-weight:${winRet>100?'bold':'normal'};">${winRet}</td><td>${fukuRet}</td>`;
+            currentRaceResultText += `【${horse.rank}位】[${horse.umaban}] ${horse.horseName} (${horse.jockey})\n指数: ${horse.indexVal} ${isHighlight?'★狙い目':''}\n成績: ${sumTotal}戦 ${sum1}-${sum2}-${sum3}-${sumOut}\n単勝回収: ${winRet} / 複勝回収: ${fukuRet}\n-------------------------\n`;
+        }
+        
+        html += `<tr ${isHighlight ? "class='highlight'" : ""}>
+            <td>${horse.umaban}</td>
+            <td style="text-align:left;"><strong>${horse.horseName}</strong><br><span style="font-size:12px; color:#666;">(${horse.jockey})</span></td>
+            <td style="font-size:16px;"><strong>${horse.indexVal}</strong></td>
+            ${displayStr}
+        </tr>`;
+    });
+    
+    html += `</table>`;
+    document.getElementById('outputTable').innerHTML = html;
+    document.getElementById('resultArea').style.display = 'block';
+};
 </script>
 <style>html { scroll-behavior: smooth; }</style>
 
