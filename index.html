@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>バディ指数 総合ツール (辞書 ＆ レース解析)</title>
+<style>
+    body { font-family: sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; color: #333; }
+    
+    /* 上部固定のメインタブ（モード切替） */
+    #main-tabs {
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #222; display: flex;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 2000;
+    }
+    .tab-btn {
+        flex: 1; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer;
+        background: #222; color: #aaa; border: none; text-align: center; transition: 0.3s;
+    }
+    .tab-btn:hover { background: #444; color: #fff; }
+    .tab-btn.active { background: #0056b3; color: #fff; border-bottom: 4px solid #ffcc00; }
+
+    /* コンテンツエリア */
+    .content-area { display: none; padding: 20px; padding-top: 80px; }
+    .content-area.active { display: block; }
+
+    /* 辞書モードのジャンプボタン */
+    #sub-nav {
+        display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+        background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .nav-btn {
+        background: #17a2b8; color: #fff; border: none; padding: 8px 15px; 
+        border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold;
+    }
+    .nav-btn:hover { background: #138496; }
+
+    /* 各種ボックス・テーブルの共通スタイル */
+    .box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; }
+    h2 { border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; color: #222; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 15px; font-size: 14px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; white-space: nowrap; }
+    th { background-color: #e9ecef; }
+    
+    /* マーカー（単勝回収値100超え） */
+    .highlight { background-color: #ffff99; font-weight: bold; }
+    .commentary { background-color: #f9f9f9; padding: 15px; border-left: 5px solid #0056b3; margin-top: 10px; font-size: 14px; }
+
+    /* 各種ボタンのスタイル */
+    input[type="text"] { padding: 10px; font-size: 16px; width: 250px; border: 1px solid #ccc; border-radius: 4px; }
+    textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-size: 14px;}
+    .action-btn { background: #28a745; color: #fff; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .action-btn:hover { background: #218838; }
+    
+    /* リセット＆コピーボタン */
+    .reset-btn { background: #dc3545; color: #fff; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .reset-btn:hover { background: #c82333; }
+    .copy-btn { background: #00c300; color: #fff; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .copy-btn:hover { background: #00a000; }
+</style>
+</head>
+<body>
+
+<!-- 上部固定：モード切替タブ -->
+<div id="main-tabs">
+    <button class="tab-btn active" onclick="switchMode('dictMode', this)">📖 過去の辞書モード</button>
+    <button class="tab-btn" onclick="switchMode('raceMode', this)">🏇 レース実践解析モード</button>
+</div>
+
+<!-- ==========================================
+     【モード1】 辞書モード
+     ========================================== -->
+<div id="dictMode" class="content-area active">
+    
+    <div id="sub-nav">
+        <a href="#rank-1" class="nav-btn">1位へ</a>
+        <a href="#rank-2" class="nav-btn">2位へ</a>
+        <a href="#rank-3" class="nav-btn">3位へ</a>
+        <a href="#rank-4" class="nav-btn">4位へ</a>
+        <a href="#rank-5" class="nav-btn">5位へ</a>
+        <a href="#rank-6" class="nav-btn">6位へ</a>
+        <a href="#rank-7" class="nav-btn">7位へ</a>
+        <a href="#rank-8" class="nav-btn">8位へ</a>
+        <a href="#search-box" class="nav-btn" style="background:#0056b3;">🔍検索窓へ</a>
+    </div>
+
+    <!-- 単一指数検索窓 -->
+    <div class="box" id="search-box">
+        <h3 style="margin-top:0; color:#0056b3;">🔍 指数ピンポイント検索</h3>
+        <p>辞書の中から特定の指数（例：1150、98.0 など）を検索して、成績と総評をパッと出します。</p>
+        <input type="text" id="searchInput" placeholder="指数を入力...">
+        <button class="action-btn" onclick="searchIndex()">検索する</button>
+        <div id="searchResult" style="margin-top: 15px;"></div>
+    </div>
+
+    <p>※各順位のタイトルの下に、その順位の「全体合算成績」を自動表示しています。<br>※単勝回収値が100を超えている行は黄色マーカーで強調表示しています。</p>
+
+    <!-- 辞書データ -->
+    <div class="box" id="rank-1">
+        <h2>1位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>1150</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>110</td></tr>
+            <tr><td>1130</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>110</td></tr>
+            <tr><td>1100</td><td>1- 2- 0- 0/ 3</td><td>33.3%</td><td>100.0%</td><td>100.0%</td><td>36</td><td>106</td></tr>
+            <tr class="highlight"><td>1090</td><td>2- 1- 0- 0/ 3</td><td>66.7%</td><td>100.0%</td><td>100.0%</td><td>126</td><td>116</td></tr>
+            <tr><td>1080</td><td>5- 4- 0- 0/ 9</td><td>55.6%</td><td>100.0%</td><td>100.0%</td><td>84</td><td>107</td></tr>
+            <tr><td>1070</td><td>4- 2- 0- 1/ 7</td><td>57.1%</td><td>85.7%</td><td>85.7%</td><td>78</td><td>91</td></tr>
+            <tr><td>1060</td><td>10- 6- 3- 3/ 22</td><td>45.5%</td><td>72.7%</td><td>86.4%</td><td>70</td><td>95</td></tr>
+            <tr><td>1050</td><td>9- 1- 2- 2/ 14</td><td>64.3%</td><td>71.4%</td><td>85.7%</td><td>96</td><td>96</td></tr>
+            <tr><td>1040</td><td>7- 8- 2- 5/ 22</td><td>31.8%</td><td>68.2%</td><td>77.3%</td><td>50</td><td>92</td></tr>
+            <tr><td>1030</td><td>12- 5- 3- 5/ 25</td><td>48.0%</td><td>68.0%</td><td>80.0%</td><td>66</td><td>87</td></tr>
+            <tr><td>1020</td><td>20- 3- 4- 8/ 35</td><td>57.1%</td><td>65.7%</td><td>77.1%</td><td>95</td><td>87</td></tr>
+            <tr><td>1010</td><td>22- 12- 8- 9/ 51</td><td>43.1%</td><td>66.7%</td><td>82.4%</td><td>72</td><td>90</td></tr>
+            <tr><td>1001</td><td>1- 1- 0- 0/ 2</td><td>50.0%</td><td>100.0%</td><td>100.0%</td><td>70</td><td>110</td></tr>
+            <tr><td>1000</td><td>20- 7- 6- 10/ 43</td><td>46.5%</td><td>62.8%</td><td>76.7%</td><td>86</td><td>88</td></tr>
+            <tr><td>991</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>990</td><td>21- 18- 11- 11/ 61</td><td>34.4%</td><td>63.9%</td><td>82.0%</td><td>66</td><td>91</td></tr>
+            <tr class="highlight"><td>981</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>110</td><td>100</td></tr>
+            <tr><td>980</td><td>26- 15- 7- 17/ 65</td><td>40.0%</td><td>63.1%</td><td>73.8%</td><td>76</td><td>83</td></tr>
+            <tr class="highlight"><td>971</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>140</td><td>110</td></tr>
+            <tr><td>970</td><td>42- 19- 4- 28/ 93</td><td>45.2%</td><td>65.6%</td><td>69.9%</td><td>89</td><td>81</td></tr>
+            <tr class="highlight"><td>961</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>170</td><td>110</td></tr>
+            <tr><td>960</td><td>34- 23- 13- 24/ 94</td><td>36.2%</td><td>60.6%</td><td>74.5%</td><td>77</td><td>89</td></tr>
+            <tr><td>950</td><td>37- 24- 13- 23/ 97</td><td>38.1%</td><td>62.9%</td><td>76.3%</td><td>83</td><td>92</td></tr>
+            <tr><td>940</td><td>26- 31- 15- 30/102</td><td>25.5%</td><td>55.9%</td><td>70.6%</td><td>57</td><td>86</td></tr>
+            <tr><td>931</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>110</td></tr>
+            <tr><td>930</td><td>45- 25- 11- 30/111</td><td>40.5%</td><td>63.1%</td><td>73.0%</td><td>91</td><td>92</td></tr>
+            <tr class="highlight"><td>921</td><td>1- 0- 0- 2/ 3</td><td>33.3%</td><td>33.3%</td><td>33.3%</td><td>103</td><td>63</td></tr>
+            <tr class="highlight"><td>920</td><td>40- 17- 14- 33/104</td><td>38.5%</td><td>54.8%</td><td>68.3%</td><td>102</td><td>88</td></tr>
+            <tr><td>911</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>910</td><td>38- 28- 15- 48/129</td><td>29.5%</td><td>51.2%</td><td>62.8%</td><td>73</td><td>80</td></tr>
+            <tr><td>901</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>110</td></tr>
+            <tr><td>900</td><td>37- 18- 20- 49/124</td><td>29.8%</td><td>44.4%</td><td>60.5%</td><td>80</td><td>79</td></tr>
+            <tr><td>890</td><td>40- 22- 18- 53/133</td><td>30.1%</td><td>46.6%</td><td>60.2%</td><td>83</td><td>82</td></tr>
+            <tr><td>881</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>880</td><td>35- 27- 16- 56/134</td><td>26.1%</td><td>46.3%</td><td>58.2%</td><td>70</td><td>78</td></tr>
+            <tr><td>871</td><td>1- 1- 0- 0/ 2</td><td>50.0%</td><td>100.0%</td><td>100.0%</td><td>80</td><td>125</td></tr>
+            <tr><td>870</td><td>31- 16- 10- 59/116</td><td>26.7%</td><td>40.5%</td><td>49.1%</td><td>91</td><td>67</td></tr>
+            <tr><td>861</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>60</td></tr>
+            <tr class="highlight"><td>860</td><td>47- 20- 15- 44/126</td><td>37.3%</td><td>53.2%</td><td>65.1%</td><td>108</td><td>89</td></tr>
+            <tr><td>850</td><td>18- 17- 20- 39/ 94</td><td>19.1%</td><td>37.2%</td><td>58.5%</td><td>63</td><td>81</td></tr>
+            <tr><td>841</td><td>1- 1- 0- 2/ 4</td><td>25.0%</td><td>50.0%</td><td>50.0%</td><td>52</td><td>57</td></tr>
+            <tr><td>840</td><td>29- 19- 15- 37/100</td><td>29.0%</td><td>48.0%</td><td>63.0%</td><td>91</td><td>93</td></tr>
+            <tr><td>831</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>830</td><td>22- 14- 16- 54/106</td><td>20.8%</td><td>34.0%</td><td>49.1%</td><td>65</td><td>70</td></tr>
+            <tr><td>821</td><td>1- 1- 1- 2/ 5</td><td>20.0%</td><td>40.0%</td><td>60.0%</td><td>40</td><td>104</td></tr>
+            <tr class="highlight"><td>820</td><td>24- 17- 12- 41/ 94</td><td>25.5%</td><td>43.6%</td><td>56.4%</td><td>101</td><td>89</td></tr>
+            <tr><td>810</td><td>19- 11- 15- 35/ 80</td><td>23.8%</td><td>37.5%</td><td>56.3%</td><td>86</td><td>88</td></tr>
+            <tr><td>800</td><td>17- 15- 5- 41/ 78</td><td>21.8%</td><td>41.0%</td><td>47.4%</td><td>80</td><td>75</td></tr>
+            <tr><td>791</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>220</td></tr>
+            <tr><td>790</td><td>11- 7- 11- 35/ 64</td><td>17.2%</td><td>28.1%</td><td>45.3%</td><td>65</td><td>73</td></tr>
+            <tr class="highlight"><td>780</td><td>11- 8- 2- 24/ 45</td><td>24.4%</td><td>42.2%</td><td>46.7%</td><td>113</td><td>79</td></tr>
+            <tr><td>771</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>170</td></tr>
+            <tr><td>770</td><td>4- 6- 4- 19/ 33</td><td>12.1%</td><td>30.3%</td><td>42.4%</td><td>39</td><td>68</td></tr>
+            <tr><td>760</td><td>6- 5- 1- 19/ 31</td><td>19.4%</td><td>35.5%</td><td>38.7%</td><td>68</td><td>73</td></tr>
+            <tr class="highlight"><td>751</td><td>1- 0- 1- 1/ 3</td><td>33.3%</td><td>33.3%</td><td>66.7%</td><td>133</td><td>110</td></tr>
+            <tr><td>750</td><td>4- 3- 1- 10/ 18</td><td>22.2%</td><td>38.9%</td><td>44.4%</td><td>93</td><td>75</td></tr>
+            <tr class="highlight"><td>741</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>430</td><td>250</td></tr>
+            <tr><td>740</td><td>1- 2- 2- 5/ 10</td><td>10.0%</td><td>30.0%</td><td>50.0%</td><td>45</td><td>81</td></tr>
+            <tr><td>730</td><td>2- 1- 2- 5/ 10</td><td>20.0%</td><td>30.0%</td><td>50.0%</td><td>72</td><td>89</td></tr>
+            <tr class="highlight"><td>720</td><td>2- 0- 0- 1/ 3</td><td>66.7%</td><td>66.7%</td><td>66.7%</td><td>300</td><td>136</td></tr>
+            <tr class="highlight"><td>711</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>210</td><td>110</td></tr>
+            <tr><td>710</td><td>0- 0- 2- 1/ 3</td><td>0.0%</td><td>0.0%</td><td>66.7%</td><td>0</td><td>100</td></tr>
+            <tr class="highlight"><td>700</td><td>1- 3- 0- 0/ 4</td><td>25.0%</td><td>100.0%</td><td>100.0%</td><td>230</td><td>217</td></tr>
+            <tr class="highlight"><td>690</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>530</td><td>220</td></tr>
+            <tr><td>680</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>670</td><td>0- 0- 1- 2/ 3</td><td>0.0%</td><td>0.0%</td><td>33.3%</td><td>0</td><td>86</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【1位の総評】</strong><br>
+            全体的に勝率・連対率が非常に高く、レースの中心となる実力を持っています。マーカーが引かれている「1090」や「860」のように単勝回収値が100を超えているゾーンは強気な単勝勝負が可能な「おいしい」数字です。それ以外は馬連や3連複の確実な軸として活用し、相手に穴馬を絡めるのが推奨されます。
+        </div>
+    </div>
+
+    <div class="box" id="rank-2">
+        <h2>2位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>960</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>950</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>60</td></tr>
+            <tr><td>940</td><td>0- 0- 1- 1/ 2</td><td>0.0%</td><td>0.0%</td><td>50.0%</td><td>0</td><td>60</td></tr>
+            <tr><td>930</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>920</td><td>3- 1- 1- 4/ 9</td><td>33.3%</td><td>44.4%</td><td>55.6%</td><td>103</td><td>71</td></tr>
+            <tr><td>910</td><td>6- 4- 0- 7/ 17</td><td>35.3%</td><td>58.8%</td><td>58.8%</td><td>94</td><td>82</td></tr>
+            <tr><td>900</td><td>4- 4- 5- 5/ 18</td><td>22.2%</td><td>44.4%</td><td>72.2%</td><td>55</td><td>94</td></tr>
+            <tr><td>890</td><td>6- 8- 0- 10/ 24</td><td>25.0%</td><td>58.3%</td><td>58.3%</td><td>69</td><td>82</td></tr>
+            <tr><td>880</td><td>7- 9- 4- 15/ 35</td><td>20.0%</td><td>45.7%</td><td>57.1%</td><td>56</td><td>77</td></tr>
+            <tr><td>870</td><td>9- 16- 9- 17/ 51</td><td>17.6%</td><td>49.0%</td><td>66.7%</td><td>55</td><td>94</td></tr>
+            <tr><td>860</td><td>19- 15- 8- 26/ 68</td><td>27.9%</td><td>50.0%</td><td>61.8%</td><td>96</td><td>87</td></tr>
+            <tr><td>850</td><td>11- 8- 12- 30/ 61</td><td>18.0%</td><td>31.1%</td><td>50.8%</td><td>67</td><td>74</td></tr>
+            <tr><td>841</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>840</td><td>16- 9- 13- 44/ 82</td><td>19.5%</td><td>30.5%</td><td>46.3%</td><td>70</td><td>70</td></tr>
+            <tr><td>831</td><td>1- 1- 0- 2/ 4</td><td>25.0%</td><td>50.0%</td><td>50.0%</td><td>82</td><td>67</td></tr>
+            <tr><td>830</td><td>31- 22- 9- 62/124</td><td>25.0%</td><td>42.7%</td><td>50.0%</td><td>90</td><td>72</td></tr>
+            <tr><td>821</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>140</td></tr>
+            <tr><td>820</td><td>24- 28- 21- 64/137</td><td>17.5%</td><td>38.0%</td><td>53.3%</td><td>65</td><td>78</td></tr>
+            <tr><td>811</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>810</td><td>14- 34- 22- 76/146</td><td>9.6%</td><td>32.9%</td><td>47.9%</td><td>35</td><td>73</td></tr>
+            <tr><td>801</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>160</td></tr>
+            <tr><td>800</td><td>37- 25- 18- 76/156</td><td>23.7%</td><td>39.7%</td><td>51.3%</td><td>87</td><td>78</td></tr>
+            <tr><td>791</td><td>1- 0- 1- 1/ 3</td><td>33.3%</td><td>33.3%</td><td>66.7%</td><td>93</td><td>100</td></tr>
+            <tr><td>790</td><td>29- 28- 23- 79/159</td><td>18.2%</td><td>35.8%</td><td>50.3%</td><td>70</td><td>83</td></tr>
+            <tr><td>781</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>780</td><td>28- 24- 27- 72/151</td><td>18.5%</td><td>34.4%</td><td>52.3%</td><td>81</td><td>85</td></tr>
+            <tr class="highlight"><td>771</td><td>2- 0- 0- 1/ 3</td><td>66.7%</td><td>66.7%</td><td>66.7%</td><td>386</td><td>156</td></tr>
+            <tr><td>770</td><td>28- 27- 24- 79/158</td><td>17.7%</td><td>34.8%</td><td>50.0%</td><td>84</td><td>87</td></tr>
+            <tr class="highlight"><td>761</td><td>2- 0- 0- 1/ 3</td><td>66.7%</td><td>66.7%</td><td>66.7%</td><td>233</td><td>100</td></tr>
+            <tr><td>760</td><td>31- 33- 27- 87/178</td><td>17.4%</td><td>36.0%</td><td>51.1%</td><td>83</td><td>89</td></tr>
+            <tr><td>751</td><td>0- 0- 1- 1/ 2</td><td>0.0%</td><td>0.0%</td><td>50.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>750</td><td>22- 27- 17- 77/143</td><td>15.4%</td><td>34.3%</td><td>46.2%</td><td>72</td><td>82</td></tr>
+            <tr><td>741</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>740</td><td>30- 14- 11- 82/137</td><td>21.9%</td><td>32.1%</td><td>40.1%</td><td>102</td><td>75</td></tr>
+            <tr><td>731</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>730</td><td>12- 19- 19- 72/122</td><td>9.8%</td><td>25.4%</td><td>41.0%</td><td>42</td><td>78</td></tr>
+            <tr><td>721</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>720</td><td>16- 19- 18- 70/123</td><td>13.0%</td><td>28.5%</td><td>43.1%</td><td>67</td><td>76</td></tr>
+            <tr><td>711</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>710</td><td>6- 14- 12- 56/ 88</td><td>6.8%</td><td>22.7%</td><td>36.4%</td><td>35</td><td>72</td></tr>
+            <tr><td>701</td><td>0- 1- 0- 2/ 3</td><td>0.0%</td><td>33.3%</td><td>33.3%</td><td>0</td><td>50</td></tr>
+            <tr><td>700</td><td>10- 11- 9- 58/ 88</td><td>11.4%</td><td>23.9%</td><td>34.1%</td><td>66</td><td>67</td></tr>
+            <tr><td>690</td><td>9- 6- 4- 37/ 56</td><td>16.1%</td><td>26.8%</td><td>33.9%</td><td>84</td><td>66</td></tr>
+            <tr><td>680</td><td>8- 7- 7- 20/ 42</td><td>19.0%</td><td>35.7%</td><td>52.4%</td><td>93</td><td>89</td></tr>
+            <tr class="highlight"><td>670</td><td>4- 4- 5- 13/ 26</td><td>15.4%</td><td>30.8%</td><td>50.0%</td><td>115</td><td>88</td></tr>
+            <tr class="highlight"><td>660</td><td>4- 4- 2- 14/ 24</td><td>16.7%</td><td>33.3%</td><td>41.7%</td><td>130</td><td>125</td></tr>
+            <tr><td>650</td><td>1- 2- 5- 11/ 19</td><td>5.3%</td><td>15.8%</td><td>42.1%</td><td>36</td><td>82</td></tr>
+            <tr><td>640</td><td>0- 3- 0- 9/ 12</td><td>0.0%</td><td>25.0%</td><td>25.0%</td><td>0</td><td>44</td></tr>
+            <tr class="highlight"><td>631</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>300</td><td>75</td></tr>
+            <tr class="highlight"><td>630</td><td>2- 2- 2- 2/ 8</td><td>25.0%</td><td>50.0%</td><td>75.0%</td><td>158</td><td>212</td></tr>
+            <tr><td>620</td><td>0- 0- 3- 2/ 5</td><td>0.0%</td><td>0.0%</td><td>60.0%</td><td>0</td><td>122</td></tr>
+            <tr><td>610</td><td>0- 1- 0- 7/ 8</td><td>0.0%</td><td>12.5%</td><td>12.5%</td><td>0</td><td>16</td></tr>
+            <tr><td>600</td><td>0- 1- 0- 2/ 3</td><td>0.0%</td><td>33.3%</td><td>33.3%</td><td>0</td><td>43</td></tr>
+            <tr class="highlight"><td>590</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>260</td><td>95</td></tr>
+            <tr><td>570</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>530</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>920</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【2位の総評】</strong><br>
+            マーカーが引かれている「920」や、特大回収値の「771」「631」など、1位を逆転して勝つポテンシャルを持つ馬がピンポイントで存在します。一方で全体的には2着・3着が多くなる傾向があるため、アタマ（1着）固定にする場合はマーカーのついた指数のみに絞り、それ以外は馬単の2着付けや3連複のヒモとして扱うのが正解です。
+        </div>
+    </div>
+
+    <div class="box" id="rank-3">
+        <h2>3位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr class="highlight"><td>860</td><td>1- 1- 0- 0/ 2</td><td>50.0%</td><td>100.0%</td><td>100.0%</td><td>185</td><td>165</td></tr>
+            <tr class="highlight"><td>840</td><td>2- 2- 0- 2/ 6</td><td>33.3%</td><td>66.7%</td><td>66.7%</td><td>103</td><td>103</td></tr>
+            <tr class="highlight"><td>830</td><td>3- 0- 3- 3/ 9</td><td>33.3%</td><td>33.3%</td><td>66.7%</td><td>201</td><td>115</td></tr>
+            <tr><td>820</td><td>1- 1- 1- 3/ 6</td><td>16.7%</td><td>33.3%</td><td>50.0%</td><td>68</td><td>121</td></tr>
+            <tr class="highlight"><td>810</td><td>6- 3- 6- 6/ 21</td><td>28.6%</td><td>42.9%</td><td>71.4%</td><td>117</td><td>92</td></tr>
+            <tr><td>800</td><td>4- 3- 7- 10/ 24</td><td>16.7%</td><td>29.2%</td><td>58.3%</td><td>59</td><td>83</td></tr>
+            <tr><td>790</td><td>5- 10- 8- 16/ 39</td><td>12.8%</td><td>38.5%</td><td>59.0%</td><td>58</td><td>102</td></tr>
+            <tr><td>780</td><td>8- 16- 8- 43/ 75</td><td>10.7%</td><td>32.0%</td><td>42.7%</td><td>51</td><td>74</td></tr>
+            <tr class="highlight"><td>771</td><td>1- 0- 0- 2/ 3</td><td>33.3%</td><td>33.3%</td><td>33.3%</td><td>126</td><td>53</td></tr>
+            <tr class="highlight"><td>770</td><td>24- 17- 8- 55/104</td><td>23.1%</td><td>39.4%</td><td>47.1%</td><td>109</td><td>74</td></tr>
+            <tr><td>760</td><td>14- 18- 15- 59/106</td><td>13.2%</td><td>30.2%</td><td>44.3%</td><td>57</td><td>79</td></tr>
+            <tr><td>751</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>160</td></tr>
+            <tr><td>750</td><td>15- 27- 28- 90/160</td><td>9.4%</td><td>26.3%</td><td>43.8%</td><td>46</td><td>72</td></tr>
+            <tr><td>740</td><td>24- 14- 24- 87/149</td><td>16.1%</td><td>25.5%</td><td>41.6%</td><td>92</td><td>80</td></tr>
+            <tr><td>731</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>730</td><td>29- 16- 14- 98/157</td><td>18.5%</td><td>28.7%</td><td>37.6%</td><td>110</td><td>72</td></tr>
+            <tr class="highlight"><td>721</td><td>1- 0- 1- 2/ 4</td><td>25.0%</td><td>25.0%</td><td>50.0%</td><td>105</td><td>87</td></tr>
+            <tr><td>720</td><td>28- 29- 23-105/185</td><td>15.1%</td><td>30.8%</td><td>43.2%</td><td>90</td><td>82</td></tr>
+            <tr><td>711</td><td>0- 0- 1- 1/ 2</td><td>0.0%</td><td>0.0%</td><td>50.0%</td><td>0</td><td>60</td></tr>
+            <tr><td>710</td><td>20- 24- 23-108/175</td><td>11.4%</td><td>25.1%</td><td>38.3%</td><td>81</td><td>76</td></tr>
+            <tr><td>701</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>700</td><td>19- 25- 33-122/199</td><td>9.5%</td><td>22.1%</td><td>38.7%</td><td>60</td><td>87</td></tr>
+            <tr class="highlight"><td>691</td><td>2- 1- 2- 3/ 8</td><td>25.0%</td><td>37.5%</td><td>62.5%</td><td>198</td><td>130</td></tr>
+            <tr><td>690</td><td>16- 21- 20- 97/154</td><td>10.4%</td><td>24.0%</td><td>37.0%</td><td>63</td><td>80</td></tr>
+            <tr><td>681</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>680</td><td>17- 17- 16-103/153</td><td>11.1%</td><td>22.2%</td><td>32.7%</td><td>82</td><td>73</td></tr>
+            <tr><td>671</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>670</td><td>17- 17- 16- 98/148</td><td>11.5%</td><td>23.0%</td><td>33.8%</td><td>71</td><td>77</td></tr>
+            <tr><td>661</td><td>1- 0- 0- 2/ 3</td><td>33.3%</td><td>33.3%</td><td>33.3%</td><td>80</td><td>43</td></tr>
+            <tr><td>660</td><td>19- 12- 19- 77/127</td><td>15.0%</td><td>24.4%</td><td>39.4%</td><td>97</td><td>80</td></tr>
+            <tr><td>651</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>650</td><td>13- 16- 18- 78/125</td><td>10.4%</td><td>23.2%</td><td>37.6%</td><td>95</td><td>90</td></tr>
+            <tr><td>641</td><td>0- 0- 1- 1/ 2</td><td>0.0%</td><td>0.0%</td><td>50.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>640</td><td>7- 9- 10- 52/ 78</td><td>9.0%</td><td>20.5%</td><td>33.3%</td><td>68</td><td>73</td></tr>
+            <tr><td>630</td><td>5- 5- 8- 57/ 75</td><td>6.7%</td><td>13.3%</td><td>24.0%</td><td>64</td><td>55</td></tr>
+            <tr><td>621</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>620</td><td>4- 1- 7- 35/ 47</td><td>8.5%</td><td>10.6%</td><td>25.5%</td><td>84</td><td>64</td></tr>
+            <tr><td>610</td><td>4- 5- 5- 32/ 46</td><td>8.7%</td><td>19.6%</td><td>30.4%</td><td>84</td><td>97</td></tr>
+            <tr><td>600</td><td>1- 4- 0- 18/ 23</td><td>4.3%</td><td>21.7%</td><td>21.7%</td><td>22</td><td>54</td></tr>
+            <tr><td>591</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>115</td></tr>
+            <tr><td>590</td><td>2- 2- 5- 17/ 26</td><td>7.7%</td><td>15.4%</td><td>34.6%</td><td>85</td><td>64</td></tr>
+            <tr class="highlight"><td>580</td><td>4- 1- 4- 6/ 15</td><td>26.7%</td><td>33.3%</td><td>60.0%</td><td>311</td><td>238</td></tr>
+            <tr class="highlight"><td>570</td><td>2- 2- 1- 10/ 15</td><td>13.3%</td><td>26.7%</td><td>33.3%</td><td>126</td><td>77</td></tr>
+            <tr class="highlight"><td>560</td><td>1- 0- 3- 6/ 10</td><td>10.0%</td><td>10.0%</td><td>40.0%</td><td>103</td><td>67</td></tr>
+            <tr><td>550</td><td>0- 3- 1- 5/ 9</td><td>0.0%</td><td>33.3%</td><td>44.4%</td><td>0</td><td>98</td></tr>
+            <tr><td>540</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>530</td><td>1- 1- 0- 3/ 5</td><td>20.0%</td><td>40.0%</td><td>40.0%</td><td>156</td><td>92</td></tr>
+            <tr><td>520</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>510</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>145</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【3位の総評】</strong><br>
+            適度に人気が落ちるため「美味しい配当」を生み出しやすい穴馬の宝庫です。マーカーのついた「860」「840」「830」「810」「770」など、単勝回収値が100を大きく超える指数が上位にズラリと並んでいます。これらの指数を見つけたら、迷わず単勝や馬単の1着固定で大振りするのが最も期待値の高い買い方となります。
+        </div>
+    </div>
+
+    <div class="box" id="rank-4">
+        <h2>4位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>800</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>790</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>780</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>200</td></tr>
+            <tr><td>770</td><td>1- 2- 1- 2/ 6</td><td>16.7%</td><td>50.0%</td><td>66.7%</td><td>66</td><td>111</td></tr>
+            <tr><td>760</td><td>2- 1- 2- 10/ 15</td><td>13.3%</td><td>20.0%</td><td>33.3%</td><td>59</td><td>54</td></tr>
+            <tr><td>750</td><td>4- 2- 3- 16/ 25</td><td>16.0%</td><td>24.0%</td><td>36.0%</td><td>100</td><td>75</td></tr>
+            <tr><td>740</td><td>3- 6- 4- 21/ 34</td><td>8.8%</td><td>26.5%</td><td>38.2%</td><td>60</td><td>65</td></tr>
+            <tr><td>730</td><td>6- 6- 7- 30/ 49</td><td>12.2%</td><td>24.5%</td><td>38.8%</td><td>64</td><td>81</td></tr>
+            <tr><td>721</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>160</td></tr>
+            <tr><td>720</td><td>11- 14- 11- 48/ 84</td><td>13.1%</td><td>29.8%</td><td>42.9%</td><td>71</td><td>101</td></tr>
+            <tr><td>711</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>710</td><td>14- 18- 17- 80/129</td><td>10.9%</td><td>24.8%</td><td>38.0%</td><td>56</td><td>83</td></tr>
+            <tr><td>700</td><td>17- 14- 19- 81/131</td><td>13.0%</td><td>23.7%</td><td>38.2%</td><td>84</td><td>83</td></tr>
+            <tr><td>691</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>70</td></tr>
+            <tr><td>690</td><td>15- 14- 21-103/153</td><td>9.8%</td><td>19.0%</td><td>32.7%</td><td>56</td><td>76</td></tr>
+            <tr><td>681</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>180</td></tr>
+            <tr><td>680</td><td>13- 14- 23-120/170</td><td>7.6%</td><td>15.9%</td><td>29.4%</td><td>77</td><td>74</td></tr>
+            <tr><td>671</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>670</td><td>17- 20- 17-124/178</td><td>9.6%</td><td>20.8%</td><td>30.3%</td><td>75</td><td>78</td></tr>
+            <tr><td>661</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>290</td></tr>
+            <tr><td>660</td><td>17- 28- 14-125/184</td><td>9.2%</td><td>24.5%</td><td>32.1%</td><td>73</td><td>80</td></tr>
+            <tr><td>651</td><td>0- 1- 0- 2/ 3</td><td>0.0%</td><td>33.3%</td><td>33.3%</td><td>0</td><td>70</td></tr>
+            <tr class="highlight"><td>650</td><td>16- 19- 18-137/190</td><td>8.4%</td><td>18.4%</td><td>27.9%</td><td>102</td><td>74</td></tr>
+            <tr><td>641</td><td>0- 1- 0- 4/ 5</td><td>0.0%</td><td>20.0%</td><td>20.0%</td><td>0</td><td>36</td></tr>
+            <tr><td>640</td><td>14- 23- 24-127/188</td><td>7.4%</td><td>19.7%</td><td>32.4%</td><td>59</td><td>82</td></tr>
+            <tr class="highlight"><td>631</td><td>1- 0- 1- 2/ 4</td><td>25.0%</td><td>25.0%</td><td>50.0%</td><td>325</td><td>152</td></tr>
+            <tr class="highlight"><td>630</td><td>24- 17- 25-122/188</td><td>12.8%</td><td>21.8%</td><td>35.1%</td><td>119</td><td>85</td></tr>
+            <tr class="highlight"><td>621</td><td>1- 1- 1- 1/ 4</td><td>25.0%</td><td>50.0%</td><td>75.0%</td><td>177</td><td>165</td></tr>
+            <tr><td>620</td><td>13- 24- 9-117/163</td><td>8.0%</td><td>22.7%</td><td>28.2%</td><td>83</td><td>84</td></tr>
+            <tr><td>611</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>115</td></tr>
+            <tr><td>610</td><td>9- 7- 17- 89/122</td><td>7.4%</td><td>13.1%</td><td>27.0%</td><td>75</td><td>68</td></tr>
+            <tr><td>601</td><td>0- 1- 2- 1/ 4</td><td>0.0%</td><td>25.0%</td><td>75.0%</td><td>0</td><td>215</td></tr>
+            <tr><td>600</td><td>11- 19- 13- 78/121</td><td>9.1%</td><td>24.8%</td><td>35.5%</td><td>83</td><td>86</td></tr>
+            <tr><td>591</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>590</td><td>5- 9- 9- 46/ 69</td><td>7.2%</td><td>20.3%</td><td>33.3%</td><td>49</td><td>87</td></tr>
+            <tr class="highlight"><td>581</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>950</td><td>300</td></tr>
+            <tr><td>580</td><td>4- 10- 9- 47/ 70</td><td>5.7%</td><td>20.0%</td><td>32.9%</td><td>37</td><td>97</td></tr>
+            <tr><td>571</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>570</td><td>3- 4- 7- 42/ 56</td><td>5.4%</td><td>12.5%</td><td>25.0%</td><td>30</td><td>75</td></tr>
+            <tr><td>561</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>560</td><td>4- 2- 5- 35/ 46</td><td>8.7%</td><td>13.0%</td><td>23.9%</td><td>54</td><td>51</td></tr>
+            <tr class="highlight"><td>550</td><td>4- 2- 4- 25/ 35</td><td>11.4%</td><td>17.1%</td><td>28.6%</td><td>148</td><td>85</td></tr>
+            <tr><td>541</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>470</td></tr>
+            <tr><td>540</td><td>1- 6- 4- 20/ 31</td><td>3.2%</td><td>22.6%</td><td>35.5%</td><td>22</td><td>98</td></tr>
+            <tr class="highlight"><td>530</td><td>1- 1- 5- 13/ 20</td><td>5.0%</td><td>10.0%</td><td>35.0%</td><td>128</td><td>114</td></tr>
+            <tr><td>520</td><td>0- 1- 1- 10/ 12</td><td>0.0%</td><td>8.3%</td><td>16.7%</td><td>0</td><td>30</td></tr>
+            <tr><td>510</td><td>0- 0- 2- 11/ 13</td><td>0.0%</td><td>0.0%</td><td>15.4%</td><td>0</td><td>64</td></tr>
+            <tr><td>500</td><td>0- 1- 3- 6/ 10</td><td>0.0%</td><td>10.0%</td><td>40.0%</td><td>0</td><td>97</td></tr>
+            <tr><td>490</td><td>0- 1- 1- 6/ 8</td><td>0.0%</td><td>12.5%</td><td>25.0%</td><td>0</td><td>136</td></tr>
+            <tr><td>480</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>470</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>460</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>450</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【4位の総評】</strong><br>
+            このあたりから勝率が目に見えて落ちてきます。マーカーのついた「650」「631」「630」など一部を除き、アタマで買うにはややリスキーです。1着を期待するよりも、手堅く2・3着に飛び込んでくるヒモ穴（ワイドや3連系の相手）として手広く拾う戦略にシフトすべき階層です。
+        </div>
+    </div>
+
+    <div class="box" id="rank-5">
+        <h2>5位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>760</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>750</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>135</td></tr>
+            <tr class="highlight"><td>740</td><td>2- 0- 1- 2/ 5</td><td>40.0%</td><td>40.0%</td><td>60.0%</td><td>214</td><td>108</td></tr>
+            <tr><td>730</td><td>0- 1- 2- 5/ 8</td><td>0.0%</td><td>12.5%</td><td>37.5%</td><td>0</td><td>86</td></tr>
+            <tr><td>720</td><td>1- 3- 2- 8/ 14</td><td>7.1%</td><td>28.6%</td><td>42.9%</td><td>36</td><td>108</td></tr>
+            <tr class="highlight"><td>710</td><td>4- 3- 3- 16/ 26</td><td>15.4%</td><td>26.9%</td><td>38.5%</td><td>209</td><td>102</td></tr>
+            <tr><td>700</td><td>1- 6- 4- 30/ 41</td><td>2.4%</td><td>17.1%</td><td>26.8%</td><td>16</td><td>68</td></tr>
+            <tr><td>690</td><td>5- 3- 5- 53/ 66</td><td>7.6%</td><td>12.1%</td><td>19.7%</td><td>71</td><td>59</td></tr>
+            <tr><td>681</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>180</td></tr>
+            <tr><td>680</td><td>5- 8- 7- 47/ 67</td><td>7.5%</td><td>19.4%</td><td>29.9%</td><td>94</td><td>78</td></tr>
+            <tr class="highlight"><td>671</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>480</td><td>160</td></tr>
+            <tr class="highlight"><td>670</td><td>12- 10- 12- 59/ 93</td><td>12.9%</td><td>23.7%</td><td>36.6%</td><td>116</td><td>111</td></tr>
+            <tr><td>661</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>660</td><td>11- 14- 20- 90/135</td><td>8.1%</td><td>18.5%</td><td>33.3%</td><td>77</td><td>86</td></tr>
+            <tr><td>650</td><td>12- 10- 15-101/138</td><td>8.7%</td><td>15.9%</td><td>26.8%</td><td>69</td><td>81</td></tr>
+            <tr class="highlight"><td>641</td><td>1- 0- 1- 1/ 3</td><td>33.3%</td><td>33.3%</td><td>66.7%</td><td>430</td><td>190</td></tr>
+            <tr><td>640</td><td>17- 5- 14-147/183</td><td>9.3%</td><td>12.0%</td><td>19.7%</td><td>100</td><td>48</td></tr>
+            <tr><td>631</td><td>0- 0- 1- 1/ 2</td><td>0.0%</td><td>0.0%</td><td>50.0%</td><td>0</td><td>285</td></tr>
+            <tr class="highlight"><td>630</td><td>20- 11- 20-168/219</td><td>9.1%</td><td>14.2%</td><td>23.3%</td><td>110</td><td>77</td></tr>
+            <tr class="highlight"><td>621</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>1070</td><td>210</td></tr>
+            <tr><td>620</td><td>12- 20- 24-145/201</td><td>6.0%</td><td>15.9%</td><td>27.9%</td><td>75</td><td>81</td></tr>
+            <tr><td>611</td><td>0- 1- 1- 2/ 4</td><td>0.0%</td><td>25.0%</td><td>50.0%</td><td>0</td><td>177</td></tr>
+            <tr><td>610</td><td>13- 14- 26-137/190</td><td>6.8%</td><td>14.2%</td><td>27.9%</td><td>84</td><td>98</td></tr>
+            <tr class="highlight"><td>601</td><td>1- 0- 1- 3/ 5</td><td>20.0%</td><td>20.0%</td><td>40.0%</td><td>134</td><td>84</td></tr>
+            <tr class="highlight"><td>600</td><td>14- 15- 15-118/162</td><td>8.6%</td><td>17.9%</td><td>27.2%</td><td>126</td><td>83</td></tr>
+            <tr><td>591</td><td>0- 1- 1- 3/ 5</td><td>0.0%</td><td>20.0%</td><td>40.0%</td><td>0</td><td>130</td></tr>
+            <tr class="highlight"><td>590</td><td>17- 12- 13-121/163</td><td>10.4%</td><td>17.8%</td><td>25.8%</td><td>133</td><td>83</td></tr>
+            <tr><td>581</td><td>0- 1- 0- 3/ 4</td><td>0.0%</td><td>25.0%</td><td>25.0%</td><td>0</td><td>77</td></tr>
+            <tr><td>580</td><td>6- 11- 9- 95/121</td><td>5.0%</td><td>14.0%</td><td>21.5%</td><td>40</td><td>64</td></tr>
+            <tr><td>571</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>570</td><td>9- 11- 8-105/133</td><td>6.8%</td><td>15.0%</td><td>21.1%</td><td>113</td><td>56</td></tr>
+            <tr><td>561</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>90</td></tr>
+            <tr><td>560</td><td>4- 5- 9- 70/ 88</td><td>4.5%</td><td>10.2%</td><td>20.5%</td><td>44</td><td>51</td></tr>
+            <tr><td>551</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>145</td></tr>
+            <tr><td>550</td><td>5- 6- 6- 60/ 77</td><td>6.5%</td><td>14.3%</td><td>22.1%</td><td>59</td><td>72</td></tr>
+            <tr><td>541</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>540</td><td>5- 9- 3- 61/ 78</td><td>6.4%</td><td>17.9%</td><td>21.8%</td><td>126</td><td>68</td></tr>
+            <tr><td>531</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>290</td></tr>
+            <tr><td>530</td><td>2- 8- 7- 48/ 65</td><td>3.1%</td><td>15.4%</td><td>26.2%</td><td>72</td><td>89</td></tr>
+            <tr class="highlight"><td>520</td><td>4- 2- 5- 37/ 48</td><td>8.3%</td><td>12.5%</td><td>22.9%</td><td>118</td><td>58</td></tr>
+            <tr><td>510</td><td>1- 6- 2- 31/ 40</td><td>2.5%</td><td>17.5%</td><td>22.5%</td><td>13</td><td>72</td></tr>
+            <tr><td>501</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>500</td><td>0- 2- 5- 30/ 37</td><td>0.0%</td><td>5.4%</td><td>18.9%</td><td>0</td><td>47</td></tr>
+            <tr class="highlight"><td>491</td><td>1- 0- 1- 0/ 2</td><td>50.0%</td><td>50.0%</td><td>100.0%</td><td>2690</td><td>730</td></tr>
+            <tr><td>490</td><td>1- 5- 3- 13/ 22</td><td>4.5%</td><td>27.3%</td><td>40.9%</td><td>22</td><td>166</td></tr>
+            <tr><td>480</td><td>0- 2- 2- 12/ 16</td><td>0.0%</td><td>12.5%</td><td>25.0%</td><td>0</td><td>85</td></tr>
+            <tr><td>470</td><td>0- 0- 0- 11/ 11</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>460</td><td>0- 1- 0- 8/ 9</td><td>0.0%</td><td>11.1%</td><td>11.1%</td><td>0</td><td>57</td></tr>
+            <tr><td>450</td><td>0- 1- 0- 5/ 6</td><td>0.0%</td><td>16.7%</td><td>16.7%</td><td>0</td><td>421</td></tr>
+            <tr><td>440</td><td>0- 1- 1- 2/ 4</td><td>0.0%</td><td>25.0%</td><td>50.0%</td><td>0</td><td>185</td></tr>
+            <tr><td>430</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>420</td><td>0- 1- 1- 0/ 2</td><td>0.0%</td><td>50.0%</td><td>100.0%</td><td>0</td><td>445</td></tr>
+            <tr><td>410</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>400</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>380</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>370</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>350</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>790</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【5位の総評】</strong><br>
+            全体的には勝率が10%を割るデータが多く、基本的には軽視されがちな順位です。しかし、その分オッズが跳ね上がるためマーカーのついた「740（回収値214）」や「710（回収値209）」のように、ハマった時の破壊力が極めて大きいのが特徴です。全体をベタ買いするのではなく、黄色のマーカーがついた特定の指数に絞って、一発大穴狙いの単勝勝負をするのが面白いデータです。
+        </div>
+    </div>
+
+    <div class="box" id="rank-6">
+        <h2>6位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>750</td><td>0- 1- 0- 0/ 1</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>0</td><td>160</td></tr>
+            <tr><td>730</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>720</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>285</td><td>135</td></tr>
+            <tr class="highlight"><td>710</td><td>1- 0- 0- 0/ 1</td><td>100.0%</td><td>100.0%</td><td>100.0%</td><td>570</td><td>180</td></tr>
+            <tr class="highlight"><td>700</td><td>1- 0- 0- 3/ 4</td><td>25.0%</td><td>25.0%</td><td>25.0%</td><td>447</td><td>102</td></tr>
+            <tr><td>690</td><td>2- 2- 1- 8/ 13</td><td>15.4%</td><td>30.8%</td><td>38.5%</td><td>73</td><td>125</td></tr>
+            <tr><td>680</td><td>2- 4- 3- 17/ 26</td><td>7.7%</td><td>23.1%</td><td>34.6%</td><td>48</td><td>95</td></tr>
+            <tr><td>670</td><td>2- 1- 3- 25/ 31</td><td>6.5%</td><td>9.7%</td><td>19.4%</td><td>55</td><td>72</td></tr>
+            <tr class="highlight"><td>660</td><td>2- 5- 4- 39/ 50</td><td>4.0%</td><td>14.0%</td><td>22.0%</td><td>117</td><td>80</td></tr>
+            <tr><td>650</td><td>4- 4- 7- 53/ 68</td><td>5.9%</td><td>11.8%</td><td>22.1%</td><td>83</td><td>65</td></tr>
+            <tr><td>640</td><td>5- 8- 5- 80/ 98</td><td>5.1%</td><td>13.3%</td><td>18.4%</td><td>86</td><td>58</td></tr>
+            <tr><td>631</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>630</td><td>7- 12- 11-109/139</td><td>5.0%</td><td>13.7%</td><td>21.6%</td><td>45</td><td>77</td></tr>
+            <tr><td>621</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>620</td><td>6- 11- 14-116/147</td><td>4.1%</td><td>11.6%</td><td>21.1%</td><td>51</td><td>76</td></tr>
+            <tr><td>610</td><td>14- 15- 12-132/173</td><td>8.1%</td><td>16.8%</td><td>23.7%</td><td>86</td><td>80</td></tr>
+            <tr><td>601</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>600</td><td>11- 19- 14-149/193</td><td>5.7%</td><td>15.5%</td><td>22.8%</td><td>52</td><td>75</td></tr>
+            <tr><td>591</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>590</td><td>9- 9- 20-132/170</td><td>5.3%</td><td>10.6%</td><td>22.4%</td><td>52</td><td>82</td></tr>
+            <tr class="highlight"><td>581</td><td>1- 1- 0- 5/ 7</td><td>14.3%</td><td>28.6%</td><td>28.6%</td><td>580</td><td>155</td></tr>
+            <tr><td>580</td><td>12- 22- 15-136/185</td><td>6.5%</td><td>18.4%</td><td>26.5%</td><td>88</td><td>96</td></tr>
+            <tr><td>571</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>570</td><td>11- 12- 10-129/162</td><td>6.8%</td><td>14.2%</td><td>20.4%</td><td>91</td><td>79</td></tr>
+            <tr class="highlight"><td>561</td><td>1- 1- 1- 4/ 7</td><td>14.3%</td><td>28.6%</td><td>42.9%</td><td>180</td><td>165</td></tr>
+            <tr><td>560</td><td>1- 12- 20-140/173</td><td>0.6%</td><td>7.5%</td><td>19.1%</td><td>4</td><td>65</td></tr>
+            <tr><td>551</td><td>0- 0- 0- 5/ 5</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>550</td><td>3- 5- 9-114/131</td><td>2.3%</td><td>6.1%</td><td>13.0%</td><td>28</td><td>61</td></tr>
+            <tr><td>541</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>540</td><td>7- 11- 8- 87/113</td><td>6.2%</td><td>15.9%</td><td>23.0%</td><td>104</td><td>71</td></tr>
+            <tr><td>530</td><td>6- 5- 9- 60/ 80</td><td>7.5%</td><td>13.8%</td><td>25.0%</td><td>87</td><td>70</td></tr>
+            <tr><td>521</td><td>0- 1- 1- 1/ 3</td><td>0.0%</td><td>33.3%</td><td>66.7%</td><td>0</td><td>173</td></tr>
+            <tr><td>520</td><td>3- 5- 8- 49/ 65</td><td>4.6%</td><td>12.3%</td><td>24.6%</td><td>40</td><td>78</td></tr>
+            <tr><td>510</td><td>1- 2- 6- 64/ 73</td><td>1.4%</td><td>4.1%</td><td>12.3%</td><td>31</td><td>67</td></tr>
+            <tr><td>500</td><td>2- 5- 2- 56/ 65</td><td>3.1%</td><td>10.8%</td><td>13.8%</td><td>47</td><td>57</td></tr>
+            <tr><td>490</td><td>3- 4- 3- 42/ 52</td><td>5.8%</td><td>13.5%</td><td>19.2%</td><td>61</td><td>88</td></tr>
+            <tr class="highlight"><td>480</td><td>3- 2- 2- 40/ 47</td><td>6.4%</td><td>10.6%</td><td>14.9%</td><td>168</td><td>54</td></tr>
+            <tr><td>470</td><td>2- 1- 2- 32/ 37</td><td>5.4%</td><td>8.1%</td><td>13.5%</td><td>88</td><td>64</td></tr>
+            <tr><td>460</td><td>1- 1- 1- 24/ 27</td><td>3.7%</td><td>7.4%</td><td>11.1%</td><td>33</td><td>26</td></tr>
+            <tr class="highlight"><td>450</td><td>1- 2- 6- 20/ 29</td><td>3.4%</td><td>10.3%</td><td>31.0%</td><td>103</td><td>154</td></tr>
+            <tr><td>440</td><td>1- 2- 1- 22/ 26</td><td>3.8%</td><td>11.5%</td><td>15.4%</td><td>26</td><td>42</td></tr>
+            <tr><td>430</td><td>0- 0- 1- 7/ 8</td><td>0.0%</td><td>0.0%</td><td>12.5%</td><td>0</td><td>68</td></tr>
+            <tr class="highlight"><td>420</td><td>1- 0- 0- 13/ 14</td><td>7.1%</td><td>7.1%</td><td>7.1%</td><td>270</td><td>44</td></tr>
+            <tr><td>410</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>400</td><td>0- 1- 0- 6/ 7</td><td>0.0%</td><td>14.3%</td><td>14.3%</td><td>0</td><td>21</td></tr>
+            <tr><td>390</td><td>0- 1- 0- 3/ 4</td><td>0.0%</td><td>25.0%</td><td>25.0%</td><td>0</td><td>130</td></tr>
+            <tr><td>380</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>370</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>360</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>340</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>300</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>280</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>270</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>260</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【6位の総評】</strong><br>
+            このランクは「極端な大穴の単勝」と「複勝でのヒモ拾い」に二極化します。マーカーのある「720」「710」「700」のようにサンプルは少ないものの単勝回収値が異常に高い数字が並んでおり、少額で夢を追う買い方が成立します。
+        </div>
+    </div>
+
+    <div class="box" id="rank-7">
+        <h2>7位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr><td>740</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>690</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>190</td></tr>
+            <tr><td>680</td><td>0- 2- 0- 4/ 6</td><td>0.0%</td><td>33.3%</td><td>33.3%</td><td>0</td><td>100</td></tr>
+            <tr><td>670</td><td>0- 2- 0- 7/ 9</td><td>0.0%</td><td>22.2%</td><td>22.2%</td><td>0</td><td>54</td></tr>
+            <tr><td>660</td><td>0- 0- 2- 10/ 12</td><td>0.0%</td><td>0.0%</td><td>16.7%</td><td>0</td><td>68</td></tr>
+            <tr><td>650</td><td>2- 1- 0- 14/ 17</td><td>11.8%</td><td>17.6%</td><td>17.6%</td><td>99</td><td>101</td></tr>
+            <tr><td>640</td><td>3- 0- 5- 23/ 31</td><td>9.7%</td><td>9.7%</td><td>25.8%</td><td>57</td><td>91</td></tr>
+            <tr><td>630</td><td>3- 7- 3- 64/ 77</td><td>3.9%</td><td>13.0%</td><td>16.9%</td><td>90</td><td>61</td></tr>
+            <tr class="highlight"><td>620</td><td>5- 5- 6- 57/ 73</td><td>6.8%</td><td>13.7%</td><td>21.9%</td><td>112</td><td>84</td></tr>
+            <tr><td>610</td><td>6- 9- 12- 97/124</td><td>4.8%</td><td>12.1%</td><td>21.8%</td><td>49</td><td>92</td></tr>
+            <tr><td>601</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>600</td><td>5- 7- 8-122/142</td><td>3.5%</td><td>8.5%</td><td>14.1%</td><td>47</td><td>61</td></tr>
+            <tr><td>591</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>590</td><td>5- 7- 15-128/155</td><td>3.2%</td><td>7.7%</td><td>17.4%</td><td>42</td><td>64</td></tr>
+            <tr><td>581</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>580</td><td>6- 15- 17-142/180</td><td>3.3%</td><td>11.7%</td><td>21.1%</td><td>48</td><td>79</td></tr>
+            <tr><td>571</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>570</td><td>5- 10- 11-137/163</td><td>3.1%</td><td>9.2%</td><td>16.0%</td><td>45</td><td>63</td></tr>
+            <tr><td>561</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>560</td><td>11- 9- 10-141/171</td><td>6.4%</td><td>11.7%</td><td>17.5%</td><td>123</td><td>89</td></tr>
+            <tr><td>551</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>550</td><td>2- 7- 11-144/164</td><td>1.2%</td><td>5.5%</td><td>12.2%</td><td>11</td><td>52</td></tr>
+            <tr><td>541</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>540</td><td>5- 11- 9-107/132</td><td>3.8%</td><td>12.1%</td><td>18.9%</td><td>109</td><td>101</td></tr>
+            <tr><td>531</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>530</td><td>8- 8- 18-117/151</td><td>5.3%</td><td>10.6%</td><td>22.5%</td><td>166</td><td>104</td></tr>
+            <tr><td>521</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>520</td><td>5- 5- 13-100/123</td><td>4.1%</td><td>8.1%</td><td>18.7%</td><td>125</td><td>84</td></tr>
+            <tr><td>511</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>510</td><td>9- 2- 4- 83/ 98</td><td>9.2%</td><td>11.2%</td><td>15.3%</td><td>256</td><td>87</td></tr>
+            <tr class="highlight"><td>500</td><td>4- 3- 8- 81/ 96</td><td>4.2%</td><td>7.3%</td><td>15.6%</td><td>118</td><td>74</td></tr>
+            <tr class="highlight"><td>490</td><td>4- 1- 3- 72/ 80</td><td>5.0%</td><td>6.3%</td><td>10.0%</td><td>131</td><td>33</td></tr>
+            <tr class="highlight"><td>480</td><td>5- 2- 4- 40/ 51</td><td>9.8%</td><td>13.7%</td><td>21.6%</td><td>256</td><td>92</td></tr>
+            <tr><td>471</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>470</td><td>4- 4- 4- 61/ 73</td><td>5.5%</td><td>11.0%</td><td>16.4%</td><td>127</td><td>89</td></tr>
+            <tr class="highlight"><td>460</td><td>2- 4- 4- 53/ 63</td><td>3.2%</td><td>9.5%</td><td>15.9%</td><td>160</td><td>94</td></tr>
+            <tr class="highlight"><td>450</td><td>2- 1- 3- 47/ 53</td><td>3.8%</td><td>5.7%</td><td>11.3%</td><td>150</td><td>63</td></tr>
+            <tr><td>440</td><td>0- 1- 3- 46/ 50</td><td>0.0%</td><td>2.0%</td><td>8.0%</td><td>0</td><td>38</td></tr>
+            <tr><td>430</td><td>1- 4- 0- 34/ 39</td><td>2.6%</td><td>12.8%</td><td>12.8%</td><td>18</td><td>74</td></tr>
+            <tr><td>420</td><td>1- 1- 1- 22/ 25</td><td>4.0%</td><td>8.0%</td><td>12.0%</td><td>57</td><td>81</td></tr>
+            <tr><td>410</td><td>0- 0- 1- 17/ 18</td><td>0.0%</td><td>0.0%</td><td>5.6%</td><td>0</td><td>0</td></tr>
+            <tr><td>400</td><td>0- 1- 1- 8/ 10</td><td>0.0%</td><td>10.0%</td><td>20.0%</td><td>0</td><td>94</td></tr>
+            <tr><td>390</td><td>0- 0- 0- 14/ 14</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>380</td><td>0- 0- 1- 11/ 12</td><td>0.0%</td><td>0.0%</td><td>8.3%</td><td>0</td><td>22</td></tr>
+            <tr><td>370</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>360</td><td>0- 0- 0- 6/ 6</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>350</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>340</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>320</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>2780</td><td>750</td></tr>
+            <tr><td>310</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>300</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>290</td><td>0- 0- 1- 0/ 1</td><td>0.0%</td><td>0.0%</td><td>100.0%</td><td>0</td><td>0</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【7位の総評】</strong><br>
+            大半の数字において回収値が100を切り、基本的には苦しい戦いとなるゾーンですが、「620」や「510」などマーカーの引かれたピンポイントの箇所だけ単勝での強襲が期待できます。基本は「消し」で問題ありませんが、黄色マーカーの指数のみ馬連・ワイドのヒモ、あるいは単勝として拾う形になります。
+        </div>
+    </div>
+
+    <div class="box" id="rank-8">
+        <h2>8位のデータ</h2>
+        <table>
+            <tr><th>指数値</th><th>着別度数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収値</th><th>複勝回収値</th></tr>
+            <tr class="highlight"><td>670</td><td>1- 0- 0- 1/ 2</td><td>50.0%</td><td>50.0%</td><td>50.0%</td><td>1095</td><td>230</td></tr>
+            <tr class="highlight"><td>660</td><td>1- 0- 0- 3/ 4</td><td>25.0%</td><td>25.0%</td><td>25.0%</td><td>320</td><td>107</td></tr>
+            <tr><td>650</td><td>0- 1- 0- 6/ 7</td><td>0.0%</td><td>14.3%</td><td>14.3%</td><td>0</td><td>30</td></tr>
+            <tr class="highlight"><td>640</td><td>2- 0- 0- 3/ 5</td><td>40.0%</td><td>40.0%</td><td>40.0%</td><td>854</td><td>186</td></tr>
+            <tr class="highlight"><td>630</td><td>1- 0- 1- 8/ 10</td><td>10.0%</td><td>10.0%</td><td>20.0%</td><td>154</td><td>79</td></tr>
+            <tr class="highlight"><td>620</td><td>1- 2- 2- 29/ 34</td><td>2.9%</td><td>8.8%</td><td>14.7%</td><td>221</td><td>68</td></tr>
+            <tr class="highlight"><td>610</td><td>3- 3- 5- 38/ 49</td><td>6.1%</td><td>12.2%</td><td>22.4%</td><td>137</td><td>115</td></tr>
+            <tr><td>600</td><td>4- 5- 2- 62/ 73</td><td>5.5%</td><td>12.3%</td><td>15.1%</td><td>73</td><td>49</td></tr>
+            <tr><td>590</td><td>3- 4- 5- 78/ 90</td><td>3.3%</td><td>7.8%</td><td>13.3%</td><td>19</td><td>57</td></tr>
+            <tr class="highlight"><td>580</td><td>9- 7- 10-114/140</td><td>6.4%</td><td>11.4%</td><td>18.6%</td><td>154</td><td>102</td></tr>
+            <tr><td>571</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>110</td></tr>
+            <tr><td>570</td><td>7- 3- 8-106/124</td><td>5.6%</td><td>8.1%</td><td>14.5%</td><td>80</td><td>56</td></tr>
+            <tr><td>561</td><td>0- 1- 0- 1/ 2</td><td>0.0%</td><td>50.0%</td><td>50.0%</td><td>0</td><td>140</td></tr>
+            <tr><td>560</td><td>4- 6- 10-129/149</td><td>2.7%</td><td>6.7%</td><td>13.4%</td><td>31</td><td>60</td></tr>
+            <tr class="highlight"><td>550</td><td>8- 9- 3-113/133</td><td>6.0%</td><td>12.8%</td><td>15.0%</td><td>105</td><td>80</td></tr>
+            <tr><td>541</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>540</td><td>3- 10- 9-154/176</td><td>1.7%</td><td>7.4%</td><td>12.5%</td><td>23</td><td>50</td></tr>
+            <tr><td>531</td><td>0- 0- 1- 3/ 4</td><td>0.0%</td><td>0.0%</td><td>25.0%</td><td>0</td><td>117</td></tr>
+            <tr><td>530</td><td>4- 6- 7-131/148</td><td>2.7%</td><td>6.8%</td><td>11.5%</td><td>73</td><td>55</td></tr>
+            <tr><td>521</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>520</td><td>5- 7- 15-138/165</td><td>3.0%</td><td>7.3%</td><td>16.4%</td><td>42</td><td>65</td></tr>
+            <tr class="highlight"><td>510</td><td>4- 3- 8-114/129</td><td>3.1%</td><td>5.4%</td><td>11.6%</td><td>101</td><td>50</td></tr>
+            <tr><td>501</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>500</td><td>3- 5- 3- 92/103</td><td>2.9%</td><td>7.8%</td><td>10.7%</td><td>50</td><td>46</td></tr>
+            <tr><td>491</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>490</td><td>3- 7- 7-108/125</td><td>2.4%</td><td>8.0%</td><td>13.6%</td><td>27</td><td>71</td></tr>
+            <tr><td>480</td><td>0- 1- 6- 78/ 85</td><td>0.0%</td><td>1.2%</td><td>8.2%</td><td>0</td><td>40</td></tr>
+            <tr class="highlight"><td>470</td><td>3- 2- 7- 76/ 88</td><td>3.4%</td><td>5.7%</td><td>13.6%</td><td>183</td><td>80</td></tr>
+            <tr><td>461</td><td>0- 0- 0- 2/ 2</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>460</td><td>1- 4- 6- 73/ 84</td><td>1.2%</td><td>6.0%</td><td>13.1%</td><td>29</td><td>68</td></tr>
+            <tr class="highlight"><td>450</td><td>4- 2- 4- 64/ 74</td><td>5.4%</td><td>8.1%</td><td>13.5%</td><td>196</td><td>89</td></tr>
+            <tr><td>441</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>440</td><td>0- 2- 5- 67/ 74</td><td>0.0%</td><td>2.7%</td><td>9.5%</td><td>0</td><td>59</td></tr>
+            <tr><td>430</td><td>0- 3- 6- 37/ 46</td><td>0.0%</td><td>6.5%</td><td>19.6%</td><td>0</td><td>138</td></tr>
+            <tr><td>420</td><td>0- 3- 2- 44/ 49</td><td>0.0%</td><td>6.1%</td><td>10.2%</td><td>0</td><td>98</td></tr>
+            <tr><td>410</td><td>1- 1- 1- 29/ 32</td><td>3.1%</td><td>6.3%</td><td>9.4%</td><td>56</td><td>45</td></tr>
+            <tr><td>400</td><td>0- 2- 1- 32/ 35</td><td>0.0%</td><td>5.7%</td><td>8.6%</td><td>0</td><td>28</td></tr>
+            <tr><td>390</td><td>0- 1- 2- 19/ 22</td><td>0.0%</td><td>4.5%</td><td>13.6%</td><td>0</td><td>152</td></tr>
+            <tr><td>380</td><td>0- 1- 0- 12/ 13</td><td>0.0%</td><td>7.7%</td><td>7.7%</td><td>0</td><td>68</td></tr>
+            <tr><td>370</td><td>0- 0- 1- 19/ 20</td><td>0.0%</td><td>0.0%</td><td>5.0%</td><td>0</td><td>18</td></tr>
+            <tr><td>360</td><td>0- 0- 1- 7/ 8</td><td>0.0%</td><td>0.0%</td><td>12.5%</td><td>0</td><td>30</td></tr>
+            <tr><td>350</td><td>0- 0- 0- 7/ 7</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr class="highlight"><td>340</td><td>1- 0- 0- 9/ 10</td><td>10.0%</td><td>10.0%</td><td>10.0%</td><td>456</td><td>56</td></tr>
+            <tr class="highlight"><td>330</td><td>1- 0- 0- 4/ 5</td><td>20.0%</td><td>20.0%</td><td>20.0%</td><td>1652</td><td>162</td></tr>
+            <tr><td>320</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>310</td><td>0- 0- 0- 8/ 8</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>300</td><td>0- 0- 2- 6/ 8</td><td>0.0%</td><td>0.0%</td><td>25.0%</td><td>0</td><td>313</td></tr>
+            <tr><td>290</td><td>0- 0- 0- 1/ 1</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>280</td><td>0- 0- 0- 4/ 4</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+            <tr><td>270</td><td>0- 0- 0- 3/ 3</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>0</td><td>0</td></tr>
+        </table>
+        <div class="commentary">
+            <strong>【8位の総評】</strong><br>
+            このランクは「超大穴のホームランバッター」が潜んでいます。ご要望の通り、610、620、630、640などが黄色マーカーで一目でわかるように、当たれば一撃で収支をプラスにする破壊力があります。また特筆すべきはサンプルの多い「580」などで、統計的にも「儲かる大穴」であることが証明されています。マーカーがついた該当指数は必ず馬券の頭やヒモに組み込んでおくべき「激アツ枠」となります。
+        </div>
+    </div>
+</div>
+
+
+<!-- ==========================================
+     【モード2】 レース実践解析モード
+     ========================================== -->
+<div id="raceMode" class="content-area">
+    <div class="box">
+        <h2 style="margin-top:0; color:#0056b3;">🏇 出馬表テキスト 解析・合算ツール</h2>
+        <p>Webページのテキストを全選択コピーして、ここに貼り付けてください。（※騎手・指数・馬名が含まれていること）<br>
+        内部で自動的にレース名と指数を順位付けし、辞書から「対象指数-10、対象、対象+10」の3データを合算したアベレージを出力します。</p>
+        <textarea id="inputText" placeholder="ここにテキストを貼り付けてください..."></textarea>
+        
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="action-btn" onclick="analyzeData()" style="flex:2; font-size: 18px;">🚀 レースを解析する</button>
+            <button class="reset-btn" onclick="resetRaceMode()" style="flex:1;">🗑 リセット</button>
+        </div>
+    </div>
+
+    <div id="resultArea" style="display:none;" class="box">
+        <div style="display:flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 15px;">
+            <h2 style="margin:0; border:none; color:#0056b3;">📊 解析結果 ＆ 合算戦歴</h2>
+            <button class="copy-btn" onclick="copyResult()">📋 LINE用にコピー</button>
+        </div>
+        <p>※合算後の<strong>単勝回収率が100%超え</strong>の馬を黄色マーカーで強調しています。</p>
+        <div id="outputTable"></div>
+    </div>
+</div>
+
+
+<!-- ==========================================
+     システム連携処理 (JavaScript)
+     ========================================== -->
+<script>
+let currentRaceResultText = ""; // コピー用のテキストデータを保存
+
+// --- モード切替の仕組み ---
+function switchMode(modeId, btn) {
+    document.querySelectorAll('.content-area').forEach(el => el.classList.remove('active'));
+    document.getElementById(modeId).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+
+// --- 辞書データ自動読み込み＆全体成績の集計システム ---
+const db = {};
+const indexDictionary = {};
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll('#dictMode .box').forEach(section => {
+        const titleEl = section.querySelector('h2');
+        if(!titleEl) return;
+        
+        const rankMatch = titleEl.textContent.match(/(\d+)位/);
+        if(!rankMatch) return;
+        const rank = rankMatch[1];
+        db[rank] = {};
+
+        let rankSum1 = 0, rankSum2 = 0, rankSum3 = 0, rankSumOut = 0, rankTotal = 0;
+        let rankWinAmount = 0, rankFukuAmount = 0;
+
+        const rows = section.querySelectorAll('table tr');
+        rows.forEach((row, idx) => {
+            if(idx === 0) return; // ヘッダー
+            const cells = row.querySelectorAll('td');
+            if(cells.length < 7) return;
+
+            const rawIndex = cells[0].textContent.trim();
+            const searchKey = rawIndex.replace(/\./g, '').trim();
+            const recordStr = cells[1].textContent.trim(); 
+            
+            const parts = recordStr.split('/')[0].split('-');
+            const r1 = parseInt(parts[0], 10) || 0;
+            const r2 = parseInt(parts[1], 10) || 0;
+            const r3 = parseInt(parts[2], 10) || 0;
+            const rOut = parseInt(parts[3], 10) || 0;
+            const winRet = parseInt(cells[5].textContent, 10) || 0;
+            const fukuRet = parseInt(cells[6].textContent, 10) || 0;
+            
+            db[rank][searchKey] = [r1, r2, r3, rOut, winRet, fukuRet];
+
+            // 順位ごとの全体成績を加算
+            let t = r1 + r2 + r3 + rOut;
+            rankSum1 += r1; rankSum2 += r2; rankSum3 += r3; rankSumOut += rOut; rankTotal += t;
+            rankWinAmount += winRet * t;
+            rankFukuAmount += fukuRet * t;
+
+            // 単一検索用の辞書登録
+            if(!indexDictionary[searchKey]) indexDictionary[searchKey] = [];
+            indexDictionary[searchKey].push({
+                rank: rank,
+                rawIndex: rawIndex,
+                record: recordStr,
+                winRate: cells[2].textContent,
+                renRate: cells[3].textContent,
+                fukuRate: cells[4].textContent,
+                winRet: cells[5].textContent,
+                fukuRet: cells[6].textContent,
+                isHighlight: row.classList.contains('highlight'),
+                commentary: section.querySelector('.commentary').innerHTML
+            });
+        });
+
+        // 順位全体の成績ボックスを自動生成してタイトルの下に挿入
+        if(rankTotal > 0) {
+            let wRate = ((rankSum1 / rankTotal) * 100).toFixed(1);
+            let rRate = (((rankSum1 + rankSum2) / rankTotal) * 100).toFixed(1);
+            let fRate = (((rankSum1 + rankSum2 + rankSum3) / rankTotal) * 100).toFixed(1);
+            let wRet = Math.round(rankWinAmount / rankTotal);
+            let fRet = Math.round(rankFukuAmount / rankTotal);
+
+            const summaryHtml = `
+                <div style="background:#e3f2fd; border-radius:4px; padding:15px; margin-bottom:15px; border-left:5px solid #0056b3; display:flex; justify-content:space-around; text-align:center; font-weight:bold; flex-wrap:wrap; gap:10px;">
+                    <div><span style="color:#0056b3;">${rank}位 全体成績</span><br><span style="font-size:18px;">${rankTotal}戦 ${rankSum1}-${rankSum2}-${rankSum3}-${rankSumOut}</span></div>
+                    <div>勝率<br><span style="font-size:18px;">${wRate}%</span></div>
+                    <div>連対率<br><span style="font-size:18px;">${rRate}%</span></div>
+                    <div>複勝率<br><span style="font-size:18px;">${fRate}%</span></div>
+                    <div>単勝回収値<br><span style="font-size:18px; color:${wRet>=100?'red':'#333'};">${wRet}</span></div>
+                    <div>複勝回収値<br><span style="font-size:18px;">${fRet}</span></div>
+                </div>
+            `;
+            titleEl.insertAdjacentHTML('afterend', summaryHtml);
+        }
+    });
+});
+
+
+// --- 辞書モード：単一検索の処理 ---
+function searchIndex() {
+    const inputVal = document.getElementById('searchInput').value;
+    const resultDiv = document.getElementById('searchResult');
+    const searchKey = inputVal.replace(/\./g, '').trim();
+
+    if(!searchKey) {
+        resultDiv.innerHTML = '<p style="color:red; font-weight:bold;">指数を入力してください。</p>';
+        return;
+    }
+
+    const results = indexDictionary[searchKey];
+
+    if(results && results.length > 0) {
+        let html = '';
+        results.forEach(data => {
+            const highlightStyle = data.isHighlight ? 'background-color: #ffff99; font-weight: bold;' : '';
+            html += `
+            <div style="border: 2px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 5px; background: #fff;">
+                <h4 style="margin-top: 0; color: #0056b3; font-size:18px;">🎯 ヒット: ${data.rank}位グループ (指数: ${data.rawIndex})</h4>
+                <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
+                    <tr style="background: #e9ecef;">
+                        <th style="border: 1px solid #ccc; padding: 5px;">着度数</th>
+                        <th style="border: 1px solid #ccc; padding: 5px;">勝率</th>
+                        <th style="border: 1px solid #ccc; padding: 5px;">複勝率</th>
+                        <th style="border: 1px solid #ccc; padding: 5px;">単回値</th>
+                        <th style="border: 1px solid #ccc; padding: 5px;">複回値</th>
+                    </tr>
+                    <tr style="${highlightStyle}">
+                        <td style="border: 1px solid #ccc; padding: 5px; text-align:center;">${data.record}</td>
+                        <td style="border: 1px solid #ccc; padding: 5px; text-align:center;">${data.winRate}</td>
+                        <td style="border: 1px solid #ccc; padding: 5px; text-align:center;">${data.fukuRate}</td>
+                        <td style="border: 1px solid #ccc; padding: 5px; text-align:center; color:${parseInt(data.winRet)>100 ? 'red':'inherit'};">${data.winRet}</td>
+                        <td style="border: 1px solid #ccc; padding: 5px; text-align:center;">${data.fukuRet}</td>
+                    </tr>
+                </table>
+                <div style="font-size: 14px; color: #333; background: #f9f9f9; padding:10px; border-left: 4px solid #0056b3;">
+                    ${data.commentary}
+                </div>
+            </div>`;
+        });
+        resultDiv.innerHTML = html;
+    } else {
+        resultDiv.innerHTML = `<p style="color:red; font-weight:bold;">データは見つかりませんでした。</p>`;
+    }
+}
+document.getElementById('searchInput').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') searchIndex();
+});
+
+
+// --- リセット機能 ---
+function resetRaceMode() {
+    document.getElementById('inputText').value = '';
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('outputTable').innerHTML = '';
+    currentRaceResultText = '';
+}
+
+
+// --- LINE用コピー機能 ---
+function copyResult() {
+    if (!currentRaceResultText) {
+        alert("コピーする結果がありません。先に解析を実行してください。");
+        return;
+    }
+    navigator.clipboard.writeText(currentRaceResultText).then(() => {
+        alert("解析結果をコピーしました！LINEなどに貼り付けられます。");
+    }).catch(err => {
+        alert("コピーに失敗しました。ブラウザが対応していない可能性があります。");
+    });
+}
+
+
+// --- レース解析モード：テキスト解析 ＆ 前後合算処理 ---
+function analyzeData() {
+    const text = document.getElementById('inputText').value;
+    if (!text) {
+        alert("テキストを貼り付けてください。");
+        return;
+    }
+
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // 【新規追加】レース名の自動抽出 (例: 中山12R)
+    let raceTitle = "レース名不明";
+    const titleMatch = text.match(/(東京|中山|京都|阪神|新潟|中京|福島|小倉|札幌|函館)\s*\d{1,2}R/);
+    if(titleMatch) {
+        raceTitle = titleMatch[0].replace(/\s+/g, ''); // 空白を詰める
+    }
+    
+    // 【ステップ1】騎手と指数を抽出
+    let jockeyData = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (i + 1 < lines.length && /^\d{2,3}(\.\d)?$/.test(lines[i+1])) {
+            if(lines[i] !== "-" && lines[i].length <= 5) {
+                jockeyData.push({ jockey: lines[i], indexRaw: parseFloat(lines[i+1]) });
+                i++; 
+            }
+        }
+    }
+
+    // 【ステップ2】馬番と馬名を抽出
+    let horseData = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\d{1,2}$/.test(lines[i])) { 
+            if (i + 1 < lines.length) {
+                let horseName = lines[i+1];
+                if(/[ァ-ヴー]/.test(horseName)) {
+                    horseData.push({ umaban: parseInt(lines[i]), horseName: horseName });
+                    i++;
+                }
+            }
+        }
+    }
+
+    // 【ステップ3】結合
+    let combinedList = [];
+    let loopCount = Math.min(jockeyData.length, horseData.length);
+    if(loopCount === 0) {
+        alert("データが正しく読み取れませんでした。テキスト形式を確認してください。");
+        return;
+    }
+    for (let i = 0; i < loopCount; i++) {
+        combinedList.push({
+            umaban: horseData[i].umaban,
+            horseName: horseData[i].horseName,
+            jockey: jockeyData[i].jockey,
+            indexVal: jockeyData[i].indexRaw
+        });
+    }
+
+    // 【ステップ4】指数順にランキング
+    combinedList.sort((a, b) => b.indexVal - a.indexVal);
+    combinedList.forEach((item, idx) => { item.rank = idx + 1; });
+
+    // 【ステップ5】前後合算・テーブル出力＆コピー用テキスト生成
+    currentRaceResultText = `🏇 バディ指数 解析結果 【 ${raceTitle} 】🏇\n=========================\n`;
+    
+    let html = `<h3 style="color:#28a745; margin-top:0; border-left: 5px solid #28a745; padding-left: 10px;">📌 対象レース：${raceTitle}</h3>
+    <table>
+        <tr>
+            <th>順位</th>
+            <th>馬番</th>
+            <th>馬名 (騎手)</th>
+            <th>指数</th>
+            <th>合算戦績 (対象±10)</th>
+            <th>勝率</th>
+            <th>複勝率</th>
+            <th>単回値</th>
+            <th>複回値</th>
+        </tr>`;
+
+    combinedList.forEach(horse => {
+        let targetKey = Math.round(horse.indexVal * 10);
+        let rankStr = horse.rank > 8 ? 8 : horse.rank;
+
+        let keysToSearch = [targetKey - 10, targetKey, targetKey + 10];
+        let sum1=0, sum2=0, sum3=0, sumOut=0, sumTotal=0;
+        let sumWinRetAmount=0, sumFukuRetAmount=0;
+
+        keysToSearch.forEach(k => {
+            let kStr = k.toString();
+            if (db[rankStr] && db[rankStr][kStr]) {
+                let d = db[rankStr][kStr];
+                let t = d[0] + d[1] + d[2] + d[3];
+                sum1 += d[0]; sum2 += d[1]; sum3 += d[2]; sumOut += d[3]; sumTotal += t;
+                sumWinRetAmount += (d[4] * t);
+                sumFukuRetAmount += (d[5] * t);
+            }
+        });
+
+        let displayStr = "";
+        let isHighlight = false;
+
+        if(sumTotal === 0) {
+            displayStr = `<td colspan="5" style="color:#999;">過去データなし</td>`;
+            currentRaceResultText += `【${horse.rank}位】[${horse.umaban}] ${horse.horseName} (${horse.jockey})\n指数: ${horse.indexVal} (過去データなし)\n-------------------------\n`;
+        } else {
+            let wRate = ((sum1 / sumTotal) * 100).toFixed(1);
+            let fRate = (((sum1+sum2+sum3) / sumTotal) * 100).toFixed(1);
+            let winRet = Math.round(sumWinRetAmount / sumTotal);
+            let fukuRet = Math.round(sumFukuRetAmount / sumTotal);
+
+            if (winRet > 100) { isHighlight = true; }
+            let fireMark = isHighlight ? "🔥" : "";
+
+            displayStr = `
+                <td>${sumTotal}戦 ${sum1}-${sum2}-${sum3}-${sumOut}</td>
+                <td>${wRate}%</td>
+                <td>${fRate}%</td>
+                <td style="color:${winRet > 100 ? 'red':'#333'}; font-weight:bold;">${winRet}</td>
+                <td>${fukuRet}</td>
+            `;
+            
+            currentRaceResultText += `【${horse.rank}位】[${horse.umaban}] ${horse.horseName} (${horse.jockey})\n`;
+            currentRaceResultText += `指数: ${horse.indexVal} ${fireMark}\n`;
+            currentRaceResultText += `戦績: ${sumTotal}戦${sum1}-${sum2}-${sum3}-${sumOut}\n`;
+            currentRaceResultText += `(勝率:${wRate}% / 複勝率:${fRate}%)\n`;
+            currentRaceResultText += `(単回値:${winRet} / 複回値:${fukuRet})\n`;
+            currentRaceResultText += `-------------------------\n`;
+        }
+
+        html += `<tr ${isHighlight ? 'class="highlight"' : ''}>
+            <td style="font-size:16px; font-weight:bold; color:#0056b3;">${horse.rank}位</td>
+            <td>${horse.umaban}</td>
+            <td style="text-align:left;"><strong>${horse.horseName}</strong><br><span style="font-size:12px; color:#666;">(${horse.jockey})</span></td>
+            <td style="font-size:16px;"><strong>${horse.indexVal}</strong></td>
+            ${displayStr}
+        </tr>`;
+    });
+
+    html += `</table>`;
+    
+    document.getElementById('outputTable').innerHTML = html;
+    document.getElementById('resultArea').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
